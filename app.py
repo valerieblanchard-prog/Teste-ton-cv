@@ -148,23 +148,37 @@ def go_di(e: str = ""):
     <li><b>Droit de rétractation :</b> 14 jours à compter de votre commande (art. L221-18). Si vous demandez le démarrage immédiat et que la prestation est pleinement réalisée avant la fin de ce délai, ce droit ne s'applique plus (art. L221-28).</li>
     <li><b>Médiation :</b> en cas de litige non résolu, médiateur de la consommation SMP — <a href="https://www.mediateur-consommation-smp.fr/" target=_blank>mediateur-consommation-smp.fr</a>.</li>
   </ul>
-  <label class=consent><input type=checkbox id=cgv onchange="document.getElementById('payer').classList.toggle('off',!this.checked)">
+  <label class=consent><input type=checkbox id=cgv>
     <span>J'ai lu et j'accepte les <a href="/cgv" target=_blank>conditions générales de vente</a> et l'information sur le droit de rétractation.</span></label>
+  <label class=consent><input type=checkbox id=start>
+    <span>Je demande le <b>démarrage immédiat</b> de la prestation (restituée sous 48-72 h) et je reconnais qu'une fois celle-ci pleinement exécutée avant la fin du délai de 14 jours, je perdrai mon droit de rétractation (art. L221-28).</span></label>
   <div style="text-align:center;margin-top:6px">
     <a id=payer class="btn off" href="/go/di/pay{e_q}">Procéder au paiement — 99 € →</a>
   </div>
   <p class=note><a href="/" style="color:#7A6075">← Retour</a></p>
 </div>
-<style>.btn.off{{pointer-events:none;opacity:.45}}</style>
-<script>document.getElementById('payer').classList.add('off')</script>""" + PAGE_FOOT
+<style>.btn.off{{pointer-events:none;background:#A892B5;cursor:not-allowed}}</style>
+<script>
+var BASE="/go/di/pay{e_q}";
+function maj(){{
+  var ok=document.getElementById('cgv').checked, s=document.getElementById('start').checked, p=document.getElementById('payer');
+  p.classList.toggle('off',!ok);
+  p.href=BASE+(s?(BASE.indexOf('?')>-1?'&':'?')+'start=1':'');
+}}
+document.getElementById('cgv').onchange=maj; document.getElementById('start').onchange=maj; maj();
+</script>""" + PAGE_FOOT
 
 
 @app.get("/go/di/pay")
-def go_di_pay(e: str = ""):
+def go_di_pay(e: str = "", start: str = ""):
     """Redirection effective vers Stripe, après acceptation des CGV. Compte le clic DI.
-    `e` = email du visiteur → pré-rempli au checkout + client_reference_id (attribution)."""
+    `e` = email du visiteur → pré-rempli au checkout + client_reference_id (attribution).
+    `start=1` = le client a demandé expressément le démarrage immédiat (renonciation au
+    droit de rétractation à exécution complète, art. L221-28) — tracé pour preuve."""
     _metrics["clics_di"] += 1
-    log.info("Clic CTA DI #%s → Stripe", _metrics["clics_di"])
+    log.info("Clic CTA DI #%s → Stripe (demarrage_anticipe=%s)", _metrics["clics_di"], start == "1")
+    if start == "1":
+        log.info("DI: demande EXPRESSE de demarrage immediat (renonciation retractation a execution complete) - email=%s", e or "?")
     _kpi_bump(d_clics=1)  # persiste le clic DI dans la table KPI & Pilotage
     import urllib.parse
     url = OFFRES["DI"][1]
@@ -197,6 +211,38 @@ def cgv():
   <h2>7. Droit applicable</h2>
   <p>Droit français.</p>
   <p class=note style="margin-top:14px">Version résumée — les CGV complètes sont remises avec le contrat de prestation de services.</p>
+  <p style="text-align:center;margin-top:10px"><a href="/">← Retour</a></p>
+</div>""" + PAGE_FOOT
+
+
+@app.get("/retractation", response_class=HTMLResponse)
+def retractation():
+    """Droit de rétractation + formulaire type (Code de la consommation, art. L221-18
+    à L221-28, formulaire annexe à l'art. R221-1). Accessible depuis le pied de page."""
+    return PAGE_HEAD + """
+<div class="card legal">
+  <div class=h1band>Droit de rétractation</div>
+  <p style="margin-top:12px">Vous disposez d'un délai de <b>14 jours</b> à compter de la conclusion du contrat pour exercer votre droit de rétractation, sans avoir à motiver votre décision (art. L221-18 du Code de la consommation). En cas de rétractation, vous êtes remboursé(e) de tout paiement sous 14 jours.</p>
+  <h2>Comment vous rétracter</h2>
+  <p>Notifiez-nous votre décision par une déclaration dénuée d'ambiguïté, avant l'expiration du délai :</p>
+  <ul style="font-size:14px;line-height:1.7">
+    <li>par email : <a href="mailto:valerie.blanchard@vb-evopro.fr">valerie.blanchard@vb-evopro.fr</a> ;</li>
+    <li>par courrier : VB Evolution Pro — Valérie Blanchard, 26 rue de Touraine, 41300 Salbris.</li>
+  </ul>
+  <h2>Exception — prestation démarrée immédiatement</h2>
+  <p>Si vous demandez expressément le <b>démarrage immédiat</b> de la prestation et qu'elle est <b>pleinement exécutée</b> avant la fin du délai, le droit de rétractation ne s'applique plus (art. L221-28). Si vous vous rétractez en cours d'exécution, vous réglez la part déjà réalisée (art. L221-25).</p>
+  <div style="background:#EDE5F2;border-left:4px solid #CAB6D2;border-radius:0 10px 10px 0;padding:15px 18px;margin-top:14px;font-size:14px;line-height:1.7">
+    <b>Formulaire type de rétractation</b>
+    <div style="color:#7A6075;font-size:12px">(À compléter et nous renvoyer uniquement si vous souhaitez vous rétracter.)</div>
+    <p style="margin:10px 0 0">À l'attention de VB Evolution Pro — Valérie Blanchard, 26 rue de Touraine, 41300 Salbris — valerie.blanchard@vb-evopro.fr :</p>
+    <p style="margin:10px 0 0">Je vous notifie par la présente ma rétractation du contrat portant sur la prestation de services ci-dessous :</p>
+    <p style="margin:10px 0 0">— Commandée le : ____________________<br>
+    — Nom du (des) consommateur(s) : ____________________<br>
+    — Adresse du (des) consommateur(s) : ____________________<br>
+    — Date : ____________________<br>
+    — Signature (uniquement en cas de notification papier) : ____________________</p>
+  </div>
+  <p class=note style="margin-top:14px">Voir aussi les <a href="/cgv">conditions générales de vente</a>.</p>
   <p style="text-align:center;margin-top:10px"><a href="/">← Retour</a></p>
 </div>""" + PAGE_FOOT
 
@@ -496,7 +542,9 @@ input[type=email],input[type=url],input[type=text]{width:100%;padding:12px;borde
 <div><h1>Teste ton CV™</h1><div class=sub>VB Evolution Pro · Diagnostic d'employabilité par IA</div></div></div>"""
 
 PAGE_FOOT = ('<div class=foot></div><div class=note>VB Evolution Pro · vb-evopro.fr · Valérie Blanchard, CIP · '
-             '<a href="/confidentialite" style="color:#7A6075">Confidentialité & mentions légales</a></div></div></body></html>')
+             '<a href="/confidentialite" style="color:#7A6075">Confidentialité & mentions légales</a> · '
+             '<a href="/cgv" style="color:#7A6075">Conditions générales</a> · '
+             '<a href="/retractation" style="color:#7A6075">Rétractation</a></div></div></body></html>')
 
 
 # ─────────────────────────────────────────────────────────────────────────────
