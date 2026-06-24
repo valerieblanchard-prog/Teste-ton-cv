@@ -662,6 +662,18 @@ def aa_html_standalone(d: dict, radar: str, marche: dict, off_code: str, for_ema
     <div style="font-size:13px;opacity:.9;margin:4px 0 12px">…et les 99 € sont déduits si vous poursuivez ensuite vers le Reposition Pro™.</div>
     <a href="{cta_href}" style="display:inline-block;background:#fff;color:#784171;padding:13px 28px;border-radius:30px;font-weight:800;text-decoration:none">→ Révéler mes deux tiers invisibles</a>
   </div>""" if di_link != "#" else ""
+    # Porte n°1 (PRINCIPALE) : appel découverte GRATUIT 30 min en visio (Calendly).
+    # Proposé à tous, sans engagement, AVANT l'offre payante DI. Lien constant (web + email).
+    rdv_block = (
+        '<div class=cta style="background:linear-gradient(135deg,#784171,#4A2647)">'
+        '<div class=cs style="font-size:19px;margin-bottom:6px">Envie d\'en parler de vive voix&nbsp;?</div>'
+        '<p style="margin:0 0 14px;font-size:14px;opacity:.95">Réservez votre <b>appel découverte gratuit</b> avec '
+        'Valérie — <b>30 minutes en visio</b>, sans engagement&nbsp;: on regarde ensemble ce qui bloque vraiment '
+        'et vous repartez avec un cap clair.</p>'
+        '<a href="https://calendly.com/valerie-blanchard-vb-evopro/30min" target="_blank" rel="noopener" '
+        'style="display:inline-block;background:#fff;color:#784171;padding:14px 30px;border-radius:30px;'
+        'font-weight:800;text-decoration:none;font-size:16px">📅 Réserver mon appel gratuit — 30 min en visio</a>'
+        '</div>')
     intro = ('<p class=note style="text-align:left;margin-top:14px">Voici votre Analyse Augmentée™, '
              'comme demandé. Document personnel et confidentiel.</p>') if for_email else ""
     barre = "" if for_email else (
@@ -706,6 +718,7 @@ def aa_html_standalone(d: dict, radar: str, marche: dict, off_code: str, for_ema
   <div class=cs style="color:#784171;font-weight:700;margin-top:16px">Mots-clés ATS qui vous manquent</div>
   <div style="margin-top:8px">{manq}</div>
   {plan_block}
+  {rdv_block}
   {cta_block}
   <p class=note>Cet aperçu évalue votre CV. Le Diagnostic Invisibilité™ complet ajoute votre visibilité
   LinkedIn (score SSI), votre réseau et votre stratégie de candidature, sur le marché réel de votre zone.</p>
