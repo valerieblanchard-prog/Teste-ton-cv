@@ -131,11 +131,38 @@ def _kpi_bump(d_aa: int = 0, d_leads: int = 0, d_clics: int = 0):
         log.exception("MAJ KPI tunnel échouée (non bloquant)")
 
 
-@app.get("/go/di")
+@app.get("/go/di", response_class=HTMLResponse)
 def go_di(e: str = ""):
-    """Redirection traçable vers le paiement DI : compte le clic AVANT de rediriger.
-    `e` = email du visiteur → pré-rempli au checkout Stripe + client_reference_id,
-    pour ATTRIBUER la vente au lead (le webhook Stripe retrouve la fiche par email)."""
+    """Information précontractuelle + acceptation des CGV et du droit de rétractation
+    AVANT le paiement (Code de la consommation, art. L221-5 / L221-18). Le paiement
+    effectif (redirection Stripe) se fait ensuite via /go/di/pay."""
+    import urllib.parse
+    e_q = ("?e=" + urllib.parse.quote(e)) if (e and "@" in e) else ""
+    return PAGE_HEAD + f"""
+<div class="card legal">
+  <div class=h1band>Diagnostic Invisibilité™ — 99 €</div>
+  <p style="margin-top:12px">Avant de régler, voici l'essentiel (information précontractuelle) :</p>
+  <ul style="font-size:14px;line-height:1.7">
+    <li><b>Prestation :</b> audit complet de votre employabilité (CV + présence en ligne + marché de votre métier), restitué sous 48-72 h.</li>
+    <li><b>Prix :</b> 99 € net — TVA non applicable (art. 293 B du CGI). Paiement sécurisé via Stripe.</li>
+    <li><b>Droit de rétractation :</b> 14 jours à compter de votre commande (art. L221-18). Si vous demandez le démarrage immédiat et que la prestation est pleinement réalisée avant la fin de ce délai, ce droit ne s'applique plus (art. L221-28).</li>
+    <li><b>Médiation :</b> en cas de litige non résolu, médiateur de la consommation SMP — <a href="https://www.mediateur-consommation-smp.fr/" target=_blank>mediateur-consommation-smp.fr</a>.</li>
+  </ul>
+  <label class=consent><input type=checkbox id=cgv onchange="document.getElementById('payer').classList.toggle('off',!this.checked)">
+    <span>J'ai lu et j'accepte les <a href="/cgv" target=_blank>conditions générales de vente</a> et l'information sur le droit de rétractation.</span></label>
+  <div style="text-align:center;margin-top:6px">
+    <a id=payer class="btn off" href="/go/di/pay{e_q}">Procéder au paiement — 99 € →</a>
+  </div>
+  <p class=note><a href="/" style="color:#7A6075">← Retour</a></p>
+</div>
+<style>.btn.off{{pointer-events:none;opacity:.45}}</style>
+<script>document.getElementById('payer').classList.add('off')</script>""" + PAGE_FOOT
+
+
+@app.get("/go/di/pay")
+def go_di_pay(e: str = ""):
+    """Redirection effective vers Stripe, après acceptation des CGV. Compte le clic DI.
+    `e` = email du visiteur → pré-rempli au checkout + client_reference_id (attribution)."""
     _metrics["clics_di"] += 1
     log.info("Clic CTA DI #%s → Stripe", _metrics["clics_di"])
     _kpi_bump(d_clics=1)  # persiste le clic DI dans la table KPI & Pilotage
@@ -146,6 +173,32 @@ def go_di(e: str = ""):
         url += (f"{sep}prefilled_email=" + urllib.parse.quote(e)
                 + "&client_reference_id=" + urllib.parse.quote(e))
     return RedirectResponse(url, status_code=302)
+
+
+@app.get("/cgv", response_class=HTMLResponse)
+def cgv():
+    """CGV résumées (version web). Les CGV complètes sont remises avec le contrat."""
+    return PAGE_HEAD + """
+<div class="card legal">
+  <div class=h1band>Conditions générales de vente</div>
+  <p class=note>VB Evolution Pro — Valérie Blanchard, micro-entreprise, SIRET 99523129700012, 26 rue de Touraine, 41300 Salbris · TVA non applicable (art. 293 B du CGI).</p>
+  <h2>1. Prestations &amp; prix</h2>
+  <p>Analyse Augmentée™ : gratuite. Diagnostic Invisibilité™ : 99 € net. Reposition Pro™ : 490 € net. Reprends Ta Place™ : 1 600 € net. Prestations réalisées à distance.</p>
+  <h2>2. Paiement</h2>
+  <p>Par carte (Stripe) ou virement ; paiement échelonné possible. Tout montant déjà réglé est déduit de l'offre supérieure.</p>
+  <h2>3. Droit de rétractation</h2>
+  <p>14 jours à compter de la commande (art. L221-18). En cas de demande expresse de démarrage immédiat, la rétractation n'est plus possible une fois la prestation pleinement exécutée (art. L221-28) ; si vous vous rétractez en cours d'exécution, vous réglez la part déjà réalisée (art. L221-25).</p>
+  <h2>4. Garantie Reposition Pro™</h2>
+  <p>80 % remboursé si insatisfaction signalée sous 14 jours ; prolongation gratuite si aucun entretien à 90 jours (sous réserve des actions réalisées). Le Prestataire est tenu d'une obligation de moyens, non de résultat.</p>
+  <h2>5. Données personnelles</h2>
+  <p>Traitement conforme au RGPD — voir la <a href="/confidentialite">politique de confidentialité</a>.</p>
+  <h2>6. Réclamations &amp; médiation</h2>
+  <p>valerie.blanchard@vb-evopro.fr · 02 54 97 96 38. À défaut de solution amiable, médiateur de la consommation SMP — <a href="https://www.mediateur-consommation-smp.fr/" target=_blank>mediateur-consommation-smp.fr</a>.</p>
+  <h2>7. Droit applicable</h2>
+  <p>Droit français.</p>
+  <p class=note style="margin-top:14px">Version résumée — les CGV complètes sont remises avec le contrat de prestation de services.</p>
+  <p style="text-align:center;margin-top:10px"><a href="/">← Retour</a></p>
+</div>""" + PAGE_FOOT
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Moteur d'analyse : 1 appel Claude vision sur le PDF → scores structurés
@@ -912,30 +965,55 @@ def capture_lead(email: str, linkedin: str, offre: str, code_rome: str, d: dict,
         "Prochaine action": "🔄 Relancer",
         "Date prochaine action": (now + timedelta(days=RELANCE_J1)).isoformat(),
     }
+    import urllib.parse
+
+    def _send(method: str, u: str, payload: dict) -> bool:
+        """Envoie un POST/PATCH Airtable et renvoie True SEULEMENT si HTTP < 300.
+        ⚠️ requests ne lève PAS d'exception sur un 4xx → il FAUT tester le status,
+        sinon un 422 (champ qui coince) passe inaperçu et le lead est perdu."""
+        try:
+            r = requests.request(method, u, headers=headers,
+                                 json={"fields": payload, "typecast": True}, timeout=8)
+        except Exception:
+            log.exception("capture_lead : requête %s réseau échouée", method)
+            return False
+        if r.status_code < 300:
+            return True
+        log.warning("capture_lead : Airtable %s a renvoyé %s — %s",
+                    method, r.status_code, r.text[:300])
+        return False
+
+    # 1) Retrouver une fiche existante (upsert par email) — non bloquant.
+    rec_id = None
     try:
-        # UPSERT par email : 1 lead, mis à jour à chaque test (« un pas = 1 mise à jour »).
-        import urllib.parse
         formula = "{Email}='" + email.replace("'", "") + "'"
         q = f"{url}?maxRecords=1&filterByFormula=" + urllib.parse.quote(formula)
-        rec_id = None
         rg = requests.get(q, headers=headers, timeout=8)
         if rg.status_code < 300:
             recs = rg.json().get("records", [])
             if recs:
                 rec_id = recs[0]["id"]
-        if rec_id:   # MISE À JOUR (sans réécraser la machine de relance)
-            requests.patch(f"{url}/{rec_id}", headers=headers,
-                           json={"fields": fields, "typecast": True}, timeout=8)
-        else:        # CRÉATION (avec amorce de relance)
-            requests.post(url, headers=headers,
-                          json={"fields": {**fields, **amorce}, "typecast": True}, timeout=8)
     except Exception:
-        try:   # repli minimal : ne jamais perdre le lead
-            requests.post(url, headers=headers,
-                          json={"fields": {"Email": email, "Source": "Teste ton CV", **amorce},
-                                "typecast": True}, timeout=8)
-        except Exception:
-            return
+        log.exception("capture_lead : recherche par email échouée")
+
+    # 2) Écriture en DÉGRADÉ : du plus riche au minimum increvable. On s'arrête
+    #    au premier succès. La dernière tentative ({Email, Source}) ne contient
+    #    aucun champ select/date → elle ne peut pas renvoyer 422.
+    if rec_id:
+        # MISE À JOUR (jamais d'amorce : ne pas réinitialiser une relance en cours).
+        for payload in (fields, {"Dernier contact": now.date().isoformat()}):
+            if _send("PATCH", f"{url}/{rec_id}", payload):
+                return
+    else:
+        bare = {"Email": email, "Source": "Teste ton CV"}
+        for payload in ({**fields, **amorce},
+                        {**bare, "Date d'entrée": now.date().isoformat(), **amorce},
+                        {**bare, "Date d'entrée": now.date().isoformat()},
+                        bare,
+                        {"Email": email}):
+            if _send("POST", url, payload):
+                return
+    log.error("capture_lead : TOUTES les tentatives ont échoué pour %s (lead non enregistré)", email)
 
 
 def stocker_cv(email: str, pdf_bytes: bytes, consent: bool, tag: str = "AA"):
