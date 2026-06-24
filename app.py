@@ -754,7 +754,7 @@ def home():
       <input type=file name=cv accept="application/pdf" required>
       <p class=note style="margin:8px 0 0">🔒 Votre CV et vos informations sont conservés <b>1 mois</b> (le temps de votre analyse et d'un éventuel suivi), puis automatiquement détruits. <a href="/confidentialite">En savoir plus</a></p>
     </div>
-    <input type=email name=email placeholder="Votre email (pour recevoir votre Analyse Augmentée par email — optionnel)">
+    <input type=email name=email required placeholder="Votre email (obligatoire — pour recevoir votre Analyse Augmentée)">
     <input type=url name=linkedin placeholder="Lien de votre profil LinkedIn (optionnel — analysé dans le diagnostic complet)">
     <input type=text name=ville placeholder="Votre ville (optionnel — pour voir les offres dans un rayon de 30 km)">
     <label class=consent><input type=checkbox name=consent value=oui>
@@ -851,6 +851,12 @@ async def analyser(request: Request, cv: UploadFile = File(...),
     refus = _rate_limited(_client_ip(request))
     if refus:
         return _erreur(refus)
+
+    # 1bis) Email OBLIGATOIRE — refusé AVANT toute analyse coûteuse (le navigateur le
+    #       bloque déjà via `required`, mais on revérifie côté serveur par sécurité).
+    email = (email or "").strip()
+    if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
+        return _erreur("Merci d'indiquer une adresse email valide pour recevoir votre Analyse Augmentée.")
 
     # 2) Taille max : on lit au plus MAX_UPLOAD+1 octets pour détecter le dépassement
     data = await cv.read(MAX_UPLOAD + 1)
