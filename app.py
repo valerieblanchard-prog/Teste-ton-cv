@@ -20,7 +20,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 import anthropic
 from fastapi import FastAPI, UploadFile, File, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 import moteur as ct  # FT + radar — module LOCAL autonome (plus de dépendance au système de bots)
 
@@ -77,6 +77,17 @@ def _rate_limited(ip: str) -> str | None:
 
 
 app = FastAPI(title="Teste ton CV — VB Evolution Pro")
+
+# ─── Logo VB Evolution Pro (charte : logo en en-tête PARTOUT) ─────────────────
+PUBLIC_URL = os.getenv("PUBLIC_URL", "https://teste-ton-cv.onrender.com").rstrip("/")
+_LOGO_PATH = Path(__file__).parent / "logo.png"
+_LOGO_BYTES = _LOGO_PATH.read_bytes() if _LOGO_PATH.exists() else b""
+
+
+@app.get("/logo.png")
+def logo_png():
+    return Response(_LOGO_BYTES, media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=86400"})
 
 # ─── Mesure conversion (MAYA : « données d'abord ») ───────────────────────────
 # Compteurs en mémoire + journal. Étape « rapide » ; l'étape structurelle = écrire
@@ -538,7 +549,7 @@ input[type=email],input[type=url],input[type=text]{width:100%;padding:12px;borde
 .note{color:#7A6075;font-size:12px;text-align:center;margin-top:10px}
 @media(max-width:640px){.grid{grid-template-columns:1fr}}
 </style></head><body><div class=wrap>
-<div class=head><div style="font-size:34px">🎯</div>
+<div class=head><img src="/logo.png" alt="VB Evolution Pro" width="44" height="44" style="border-radius:8px;display:block">
 <div><h1>Teste ton CV™</h1><div class=sub>VB Evolution Pro · Diagnostic d'employabilité par IA</div></div></div>"""
 
 PAGE_FOOT = ('<div class=foot></div><div class=note>VB Evolution Pro · vb-evopro.fr · Valérie Blanchard, CIP · '
@@ -743,10 +754,12 @@ def aa_html_standalone(d: dict, radar: str, marche: dict, off_code: str, for_ema
         '<div style="margin-top:10px;color:#784171;font-weight:700">Bien à vous,<br>Valérie Blanchard</div>'
         '<div style="color:#7A6075;font-size:12px;margin-top:2px">Conseillère en insertion professionnelle · '
         'VB Evolution Pro · valerie.blanchard@vb-evopro.fr · vb-evopro.fr</div></div>')
+    # Logo : URL relative en web, URL absolue en email (sinon image cassée dans la boîte mail).
+    logo_src = (PUBLIC_URL + "/logo.png") if for_email else "/logo.png"
     return f"""<!doctype html><html lang=fr><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>Analyse Augmentée™ — VB Evolution Pro</title>{AA_STYLE}</head><body><div class=wrap>
-<div class=head><div style="font-size:34px">🎯</div>
+<div class=head><img src="{logo_src}" alt="VB Evolution Pro" width="44" height="44" style="border-radius:8px;display:block">
 <div><h1>Analyse Augmentée™</h1><div class=sub>VB Evolution Pro · Diagnostic d'employabilité par IA</div></div></div>
 {intro}
 <div class=card>
@@ -1028,7 +1041,8 @@ def capture_lead(email: str, linkedin: str, offre: str, code_rome: str, d: dict,
     amorce = {
         "Date d'entrée": now.date().isoformat(),
         "Statut pipeline": "Sophie - Nouveau Lead",
-        "Relance": "0",
+        # Le document AA envoyé par email = 1er contact (J0) → la séquence enchaîne sur J+2 (relance web).
+        "Relance": "1",
         "Prochaine action": "🔄 Relancer",
         "Date prochaine action": (now + timedelta(days=RELANCE_J1)).isoformat(),
     }
