@@ -21,6 +21,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 import anthropic
 from fastapi import FastAPI, UploadFile, File, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 import moteur as ct  # FT + radar — module LOCAL autonome (plus de dépendance au système de bots)
 
@@ -88,6 +89,13 @@ _LOGO_BYTES = _LOGO_PATH.read_bytes() if _LOGO_PATH.exists() else b""
 def logo_png():
     return Response(_LOGO_BYTES, media_type="image/png",
                     headers={"Cache-Control": "public, max-age=86400"})
+
+
+# Visuels réseaux sociaux (offres.jpg, conseils.jpg, leo.png, …) servis publiquement
+# → URLs directes utilisables par LÉO/Make comme image_url (Instagram exige une URL publique).
+_VISUELS_DIR = Path(__file__).parent / "visuels"
+if _VISUELS_DIR.exists():
+    app.mount("/visuels", StaticFiles(directory=str(_VISUELS_DIR)), name="visuels")
 
 # ─── Mesure conversion (MAYA : « données d'abord ») ───────────────────────────
 # Compteurs en mémoire + journal. Étape « rapide » ; l'étape structurelle = écrire
