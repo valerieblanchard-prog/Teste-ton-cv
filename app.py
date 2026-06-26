@@ -94,8 +94,31 @@ def logo_png():
 # Visuels réseaux sociaux (offres.jpg, conseils.jpg, leo.png, …) servis publiquement
 # → URLs directes utilisables par LÉO/Make comme image_url (Instagram exige une URL publique).
 _VISUELS_DIR = Path(__file__).parent / "visuels"
-if _VISUELS_DIR.exists():
-    app.mount("/visuels", StaticFiles(directory=str(_VISUELS_DIR)), name="visuels")
+_UPLOADS_DIR = _VISUELS_DIR / "uploads"     # images déposées (ex. photo Telegram) → lien public
+_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)   # garantit visuels/ + uploads/
+app.mount("/visuels", StaticFiles(directory=str(_VISUELS_DIR)), name="visuels")
+
+# Jeton partagé pour protéger le dépôt d'image (à régler dans l'hébergeur via UPLOAD_TOKEN).
+UPLOAD_TOKEN = os.getenv("UPLOAD_TOKEN", "vbep-leo-2026")
+
+
+@app.post("/upload")
+async def upload_image(file: UploadFile = File(...), token: str = Form("")):
+    """Dépôt d'une image (ex. photo envoyée à LÉO dans Telegram) → renvoie un lien PUBLIC
+    direct, utilisable comme image_url pour publier sur Instagram/Facebook.
+    Protégé par un jeton. Stockage éphémère : suffit le temps que Meta récupère l'image."""
+    if token != UPLOAD_TOKEN:
+        return Response("forbidden", status_code=403)
+    data = await file.read(MAX_UPLOAD + 1)
+    if len(data) > MAX_UPLOAD:
+        return Response("too large", status_code=413)
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+        ext = ".jpg"
+    base = re.sub(r"[^a-z0-9]", "", (file.filename or "img").lower())[:10] or "img"
+    name = f"tg_{int(time.time())}_{base}{ext}"
+    (_UPLOADS_DIR / name).write_bytes(data)
+    return {"url": f"{PUBLIC_URL}/visuels/uploads/{name}"}
 
 # ─── Mesure conversion (MAYA : « données d'abord ») ───────────────────────────
 # Compteurs en mémoire + journal. Étape « rapide » ; l'étape structurelle = écrire
